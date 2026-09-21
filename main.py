@@ -170,3 +170,43 @@ fig3.update_layout(
 st.plotly_chart(fig3, use_container_width=True)
 
 st.info("**이 그래프로 알 수 있는 것:** (여기에 그래프 해석 문구를 작성하세요.)")
+
+
+# ==============================================================
+# 구역 4. 누적 관객 TOP 10 영화
+# ==============================================================
+st.header("4. 누적 관객 TOP 10 영화")
+
+movie_summary = (
+    df.groupby("영화명")
+    .agg(누적일관객=("일관객", "sum"), 순위권_일수=("날짜", "count"))
+    .reset_index()
+    .sort_values("누적일관객", ascending=False)
+    .head(10)
+    .sort_values("누적일관객", ascending=True)  # 가로 막대에서 위로 갈수록 큰 값이 오도록
+)
+
+fig4 = px.bar(
+    movie_summary,
+    x="누적일관객",
+    y="영화명",
+    orientation="h",
+    custom_data=["순위권_일수"],
+    title="기간 내 누적 일관객 TOP 10 영화",
+)
+fig4.update_traces(
+    hovertemplate=(
+        "영화명: %{y}<br>"
+        "누적 관객수: %{x:,}명<br>"
+        "10위권 진입 일수: %{customdata[0]}일"
+        "<extra></extra>"
+    )
+)
+fig4.update_layout(
+    xaxis_title="누적 일관객(명)",
+    yaxis_title="영화명",
+)
+
+st.plotly_chart(fig4, use_container_width=True)
+
+st.info("**이 그래프로 알 수 있는 것:** (여기에 그래프 해석 문구를 작성하세요.)")
