@@ -1,5 +1,6 @@
 import pandas as pd
 import plotly.express as px
+import plotly.graph_objects as go
 import streamlit as st
 
 # ------------------------------------------------------------
@@ -122,31 +123,48 @@ daily_total = (
     .sum()
     .reset_index()
     .sort_values("날짜")
+    .reset_index(drop=True)
 )
 
 top3_days = daily_total.sort_values("일관객", ascending=False).head(3)
 
-fig3 = px.area(
-    daily_total,
-    x="날짜",
-    y="일관객",
-    title="날짜별 박스오피스 10위권 일관객 합계",
-)
-fig3.update_traces(
-    hovertemplate="날짜: %{x|%Y-%m-%d}<br>합계 관객수: %{y:,}명<extra></extra>"
-)
-fig3.update_layout(xaxis_title="날짜", yaxis_title="10위권 합계 관객수(명)")
+# 리스트로 변환해 렌더링 문제를 방지
+x_all = daily_total["날짜"].tolist()
+y_all = daily_total["일관객"].tolist()
+x_top3 = top3_days["날짜"].tolist()
+y_top3 = top3_days["일관객"].tolist()
+label_top3 = [d.strftime("%Y-%m-%d") for d in x_top3]
 
-# 합계가 가장 컸던 3일을 점과 날짜 라벨로 표시
-fig3.add_scatter(
-    x=top3_days["날짜"],
-    y=top3_days["일관객"],
-    mode="markers+text",
-    text=top3_days["날짜"].dt.strftime("%Y-%m-%d"),
-    textposition="top center",
-    marker=dict(size=10, color="red", symbol="star"),
-    name="합계 TOP 3일",
-    hovertemplate="날짜: %{x|%Y-%m-%d}<br>합계 관객수: %{y:,}명<extra>TOP 3</extra>",
+fig3 = go.Figure()
+
+fig3.add_trace(
+    go.Scatter(
+        x=x_all,
+        y=y_all,
+        mode="lines",
+        fill="tozeroy",
+        name="일별 합계",
+        hovertemplate="날짜: %{x|%Y-%m-%d}<br>합계 관객수: %{y:,}명<extra></extra>",
+    )
+)
+
+fig3.add_trace(
+    go.Scatter(
+        x=x_top3,
+        y=y_top3,
+        mode="markers+text",
+        text=label_top3,
+        textposition="top center",
+        marker=dict(size=12, color="red", symbol="star"),
+        name="합계 TOP 3일",
+        hovertemplate="날짜: %{x|%Y-%m-%d}<br>합계 관객수: %{y:,}명<extra>TOP 3</extra>",
+    )
+)
+
+fig3.update_layout(
+    title="날짜별 박스오피스 10위권 일관객 합계",
+    xaxis_title="날짜",
+    yaxis_title="10위권 합계 관객수(명)",
 )
 
 st.plotly_chart(fig3, use_container_width=True)
