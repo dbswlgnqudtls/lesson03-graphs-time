@@ -61,12 +61,46 @@ st.info("**이 그래프로 알 수 있는 것:** (여기에 그래프 해석 �
 
 
 # ==============================================================
-# 구역 2. (다음 그래프를 위한 자리)
+# 구역 2. 누적 관객 TOP 5 영화의 일별 관객수 비교
 # ==============================================================
-st.header("2. 다음 그래프 자리")
-st.write("여기에 새로운 그래프를 추가할 예정입니다.")
+st.header("2. 누적 관객 TOP 5 영화의 일별 관객수 비교")
 
-# st.info("**이 그래프로 알 수 있는 것:** (여기에 그래프 해석 문구를 작성하세요.)")
+top5_movies = (
+    df.groupby("영화명")["일관객"]
+    .sum()
+    .sort_values(ascending=False)
+    .head(5)
+    .index
+    .tolist()
+)
+
+top5_df = (
+    df[df["영화명"].isin(top5_movies)]
+    .sort_values("날짜")
+    .loc[:, ["날짜", "영화명", "일관객"]]
+)
+
+fig2 = px.line(
+    top5_df,
+    x="날짜",
+    y="일관객",
+    color="영화명",
+    markers=True,
+    title="기간 내 일관객 합계 TOP 5 영화의 날짜별 일일 관객수",
+)
+fig2.update_traces(
+    hovertemplate="날짜: %{x|%Y-%m-%d}<br>일일 관객수: %{y:,}명<extra>%{fullData.name}</extra>"
+)
+fig2.update_layout(
+    xaxis_title="날짜",
+    yaxis_title="일일 관객수(명)",
+    legend_title="영화명",
+)
+
+st.plotly_chart(fig2, use_container_width=True)
+st.caption("범례의 영화명을 클릭하면 해당 영화의 선을 켜고 끌 수 있습니다.")
+
+st.info("**이 그래프로 알 수 있는 것:** (여기에 그래프 해석 문구를 작성하세요.)")
 
 
 # ==============================================================
