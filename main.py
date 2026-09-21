@@ -95,6 +95,15 @@ fig2.update_layout(
     xaxis_title="날짜",
     yaxis_title="일일 관객수(명)",
     legend_title="영화명",
+    showlegend=True,
+    legend=dict(
+        orientation="h",
+        yanchor="bottom",
+        y=1.02,
+        xanchor="left",
+        x=0,
+    ),
+    margin=dict(t=100),
 )
 
 st.plotly_chart(fig2, use_container_width=True)
