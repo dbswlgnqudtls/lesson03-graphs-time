@@ -1,249 +1,71 @@
+import streamlit as st
 import pandas as pd
 import plotly.express as px
-import plotly.graph_objects as go
-import streamlit as st
 
-# ------------------------------------------------------------
-# 기본 설정
-# ------------------------------------------------------------
-st.set_page_config(page_title="영화 데이터 그래프 도감 1 - 시간", layout="wide")
-st.title("영화 데이터 그래프 도감 1 - 시간")
-st.caption("KOBIS 일별 박스오피스 데이터(최근 1년, 10위권)를 시간의 흐름 관점에서 살펴봅니다.")
+st.set_page_config(page_title="영화 데이터 그래프 도감 2 - 분포와 관계", layout="wide")
 
-DATA_URL = "https://raw.githubusercontent.com/greatsong/modudata/main/data/kobis_daily.csv"
+st.title("영화 데이터 그래프 도감 2 - 분포와 관계")
+
+DATA_URL = "https://raw.githubusercontent.com/greatsong/modudata/main/data/kobis_movies.csv"
 
 
-# ------------------------------------------------------------
-# 데이터 로드
-# ------------------------------------------------------------
 @st.cache_data
-def load_data():
-    df = pd.read_csv(DATA_URL)
-    # 날짜 열(하이픈 없는 8자리 숫자, 예: 20250901)을 실제 날짜형으로 변환
-    df["날짜"] = pd.to_datetime(df["날짜"], format="%Y%m%d")
+def load_data(url: str) -> pd.DataFrame:
+    df = pd.read_csv(url)
+
+    # 장르 열에 세로막대(|)로 여러 장르가 적힌 경우, 첫 번째 장르만 사용
+    if "genre" in df.columns:
+        df["genre"] = df["genre"].astype(str).str.split("|").str[0].str.strip()
+
+    # 개봉일(여덟 자리 숫자, 예: 20230115)을 날짜 형식으로 변환
+    if "openDt" in df.columns:
+        df["openDt"] = pd.to_datetime(
+            df["openDt"].astype(str), format="%Y%m%d", errors="coerce"
+        )
+
     return df
 
 
-df = load_data()
+df = load_data(DATA_URL)
 
 with st.expander("원본 데이터 미리보기"):
-    st.dataframe(df.head(20), use_container_width=True)
+    st.dataframe(df, use_container_width=True)
 
+st.markdown("---")
 
-# ==============================================================
-# 구역 1. 영화별 일별 관객수 추이
-# ==============================================================
-st.header("1. 영화별 일별 관객수 추이")
+# ----------------------------------------------------------------------
+# 그래프 1. 장르별 영화 편수 - 도넛 그래프
+# ----------------------------------------------------------------------
+st.header("1. 장르별 영화 편수")
 
-movie_list = sorted(df["영화명"].unique())
-selected_movie = st.selectbox("영화를 선택하세요", movie_list, key="movie_select_1")
-
-movie_df = (
-    df[df["영화명"] == selected_movie]
-    .sort_values("날짜")
-    .loc[:, ["날짜", "일관객"]]
-)
-
-fig1 = px.line(
-    movie_df,
-    x="날짜",
-    y="일관객",
-    markers=True,
-    title=f"'{selected_movie}' 일별 관객수 변화",
-)
-fig1.update_traces(
-    hovertemplate="날짜: %{x|%Y-%m-%d}<br>일일 관객수: %{y:,}명<extra></extra>"
-)
-fig1.update_layout(xaxis_title="날짜", yaxis_title="일일 관객수(명)")
-
-st.plotly_chart(fig1, use_container_width=True)
-
-st.info("**이 그래프로 알 수 있는 것:** (여기에 그래프 해석 문구를 작성하세요.)")
-
-
-# ==============================================================
-# 구역 2. 누적 관객 TOP 5 영화의 일별 관객수 비교
-# ==============================================================
-st.header("2. 누적 관객 TOP 5 영화의 일별 관객수 비교")
-
-top5_movies = (
-    df.groupby("영화명")["일관객"]
-    .sum()
-    .sort_values(ascending=False)
-    .head(5)
-    .index
-    .tolist()
-)
-
-top5_df = (
-    df[df["영화명"].isin(top5_movies)]
-    .sort_values("날짜")
-    .loc[:, ["날짜", "영화명", "일관객"]]
-)
-
-fig2 = px.line(
-    top5_df,
-    x="날짜",
-    y="일관객",
-    color="영화명",
-    markers=True,
-    title="기간 내 일관객 합계 TOP 5 영화의 날짜별 일일 관객수",
-)
-fig2.update_traces(
-    hovertemplate="날짜: %{x|%Y-%m-%d}<br>일일 관객수: %{y:,}명<extra>%{fullData.name}</extra>"
-)
-fig2.update_layout(
-    xaxis_title="날짜",
-    yaxis_title="일일 관객수(명)",
-    legend_title="영화명",
-    showlegend=True,
-    legend=dict(
-        orientation="h",
-        yanchor="bottom",
-        y=1.02,
-        xanchor="left",
-        x=0,
-    ),
-    margin=dict(t=100),
-)
-
-st.plotly_chart(fig2, use_container_width=True)
-st.caption("범례의 영화명을 클릭하면 해당 영화의 선을 켜고 끌 수 있습니다.")
-
-st.info("**이 그래프로 알 수 있는 것:** (여기에 그래프 해석 문구를 작성하세요.)")
-
-
-# ==============================================================
-# 구역 3. 날짜별 10위권 전체 일관객 합계
-# ==============================================================
-st.header("3. 날짜별 10위권 전체 일관객 합계")
-
-daily_total = (
-    df.groupby("날짜")["일관객"]
-    .sum()
+genre_counts = (
+    df["genre"]
+    .value_counts()
     .reset_index()
-    .sort_values("날짜")
-    .reset_index(drop=True)
+)
+genre_counts.columns = ["genre", "count"]
+
+fig_genre = px.pie(
+    genre_counts,
+    names="genre",
+    values="count",
+    hole=0.5,
+)
+fig_genre.update_traces(
+    textinfo="label+percent",
+    hovertemplate="<b>%{label}</b><br>편수: %{value}편<br>비율: %{percent}<extra></extra>",
+)
+fig_genre.update_layout(
+    legend_title_text="장르",
+    margin=dict(t=30, b=30, l=10, r=10),
 )
 
-top3_days = daily_total.sort_values("일관객", ascending=False).head(3)
+st.plotly_chart(fig_genre, use_container_width=True)
 
-# 리스트로 변환해 렌더링 문제를 방지
-x_all = daily_total["날짜"].tolist()
-y_all = daily_total["일관객"].tolist()
-x_top3 = top3_days["날짜"].tolist()
-y_top3 = top3_days["일관객"].tolist()
-label_top3 = [d.strftime("%Y-%m-%d") for d in x_top3]
+st.markdown("**이 그래프로 알 수 있는 것:** ")
 
-fig3 = go.Figure()
+st.markdown("---")
 
-fig3.add_trace(
-    go.Scatter(
-        x=x_all,
-        y=y_all,
-        mode="lines",
-        fill="tozeroy",
-        name="일별 합계",
-        hovertemplate="날짜: %{x|%Y-%m-%d}<br>합계 관객수: %{y:,}명<extra></extra>",
-    )
-)
-
-fig3.add_trace(
-    go.Scatter(
-        x=x_top3,
-        y=y_top3,
-        mode="markers+text",
-        text=label_top3,
-        textposition="top center",
-        marker=dict(size=12, color="red", symbol="star"),
-        name="합계 TOP 3일",
-        hovertemplate="날짜: %{x|%Y-%m-%d}<br>합계 관객수: %{y:,}명<extra>TOP 3</extra>",
-    )
-)
-
-fig3.update_layout(
-    title="날짜별 박스오피스 10위권 일관객 합계",
-    xaxis_title="날짜",
-    yaxis_title="10위권 합계 관객수(명)",
-)
-
-st.plotly_chart(fig3, use_container_width=True)
-
-st.info("**이 그래프로 알 수 있는 것:** (여기에 그래프 해석 문구를 작성하세요.)")
-
-
-# ==============================================================
-# 구역 4. 누적 관객 TOP 10 영화
-# ==============================================================
-st.header("4. 누적 관객 TOP 10 영화")
-
-movie_summary = (
-    df.groupby("영화명")
-    .agg(누적일관객=("일관객", "sum"), 순위권_일수=("날짜", "count"))
-    .reset_index()
-    .sort_values("누적일관객", ascending=False)
-    .head(10)
-    .sort_values("누적일관객", ascending=True)  # 가로 막대에서 위로 갈수록 큰 값이 오도록
-)
-
-fig4 = px.bar(
-    movie_summary,
-    x="누적일관객",
-    y="영화명",
-    orientation="h",
-    custom_data=["순위권_일수"],
-    title="기간 내 누적 일관객 TOP 10 영화",
-)
-fig4.update_traces(
-    hovertemplate=(
-        "영화명: %{y}<br>"
-        "누적 관객수: %{x:,}명<br>"
-        "10위권 진입 일수: %{customdata[0]}일"
-        "<extra></extra>"
-    )
-)
-fig4.update_layout(
-    xaxis_title="누적 일관객(명)",
-    yaxis_title="영화명",
-)
-
-st.plotly_chart(fig4, use_container_width=True)
-
-st.info("**이 그래프로 알 수 있는 것:** (여기에 그래프 해석 문구를 작성하세요.)")
-
-
-# ==============================================================
-# 구역 5. 월 x 요일별 일관객 합계 히트맵
-# ==============================================================
-st.header("5. 월 x 요일별 일관객 합계 히트맵")
-
-heatmap_df = df.copy()
-heatmap_df["월"] = heatmap_df["날짜"].dt.month
-weekday_kor = ["월", "화", "수", "목", "금", "토", "일"]
-heatmap_df["요일"] = heatmap_df["날짜"].dt.weekday.map(lambda i: weekday_kor[i])
-
-pivot = (
-    heatmap_df.groupby(["요일", "월"])["일관객"]
-    .sum()
-    .reset_index()
-    .pivot(index="요일", columns="월", values="일관객")
-    .reindex(index=weekday_kor)  # 월요일 ~ 일요일 순서
-)
-pivot = pivot.reindex(columns=sorted(pivot.columns))  # 월 오름차순 정렬
-
-fig5 = px.imshow(
-    pivot,
-    color_continuous_scale="Blues",
-    aspect="auto",
-    labels=dict(x="월", y="요일", color="합계 관객수"),
-    title="월 x 요일별 일관객 합계",
-)
-fig5.update_xaxes(type="category", title="월", ticksuffix="월")
-fig5.update_yaxes(title="요일")
-fig5.update_traces(
-    hovertemplate="월: %{x}월<br>요일: %{y}요일<br>합계 관객수: %{z:,}명<extra></extra>"
-)
-
-st.plotly_chart(fig5, use_container_width=True)
-
-st.info("**이 그래프로 알 수 있는 것:** (여기에 그래프 해석 문구를 작성하세요.)")
+# ----------------------------------------------------------------------
+# (다음 그래프를 이어서 추가할 자리)
+# ----------------------------------------------------------------------
